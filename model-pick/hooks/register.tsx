@@ -160,10 +160,10 @@ const applyCombo = ($: EngineInterface, combo: Combo) => {
         $.ui.toast(`${labelOf(combo)} not applied: the model switch was not confirmed`)
         return
       }
-      const effort = await $.command.run({ command: 'effort', args: combo.effort })
+      // "/effort" prints its result to the transcript, not to `text`: resolved is set.
+      await $.command.run({ command: 'effort', args: combo.effort })
       await pushRecent($, combo)
-      const applied = effort.text?.startsWith('Set effort') ?? false
-      $.ui.toast(applied ? `now ${labelOf(combo)}` : `${combo.model} set, effort: ${effort.text ?? 'unchanged'}`)
+      $.ui.toast(`now ${labelOf(combo)}`)
     } catch (err) {
       $.ui.toast(`${err instanceof Error ? err.message : String(err)}`)
     }
