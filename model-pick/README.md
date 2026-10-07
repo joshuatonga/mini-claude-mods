@@ -11,7 +11,7 @@ short aliases, and the last 5 picks stay one keystroke away.
 In any Claude Code session:
 
 ```
-/plugin install model-pick --marketplace joshuatonga/claude-mods
+/plugin install model-pick --marketplace joshuatonga/mini-claude-mods
 ```
 
 Answer `y` to add the marketplace, then pick a scope (user is fine). That is
@@ -20,7 +20,7 @@ all: `/pick` works in that session right away and in every session after.
 Already added the marketplace? Then it is just:
 
 ```
-/plugin install model-pick@claude-mods
+/plugin install model-pick@mini-claude-mods
 ```
 
 Needs Claude Code 2.1.292 or newer (the mod is a function-hooks plugin).
@@ -95,10 +95,10 @@ Vertex ids and any alias newer than this list. Nothing to configure.
 ## Hacking on it
 
 ```
-git clone git@github.com:joshuatonga/claude-mods.git
-claude --plugin-dir ./claude-mods/model-pick     # load it for one session; edits hot-reload
-claude plugin validate ./claude-mods/model-pick
-claude plugin test ./claude-mods/model-pick
+git clone git@github.com:joshuatonga/mini-claude-mods.git
+claude --plugin-dir ./mini-claude-mods/model-pick     # load it for one session; edits hot-reload
+claude plugin validate ./mini-claude-mods/model-pick
+claude plugin test ./mini-claude-mods/model-pick
 ```
 
 Layout:
