@@ -17,9 +17,13 @@ const PANE = {
   },
 } as const
 
+let currentModel = 'claude-fable-5-1'
+
 /** Answers what the engine would beneath the plugins, then starts the session. */
 const boot = async ($: Engine, on: On, ran: string[] = [], settings: Record<string, unknown> = {}) => {
+  currentModel = 'claude-fable-5-1'
   on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('session.model', () => ({ value: currentModel }))
   on('settings.read', () => ({ value: settings }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
@@ -120,6 +124,7 @@ test('a declined model switch applies nothing and records no recent', async ($, 
     toasts.push(e.text)
     return { value: undefined }
   })
+  on('session.model', () => ({ value: 'claude-fable-5-1' }))
   const ran: string[] = []
   on('command.run', ($, e) => {
     ran.push(e.command)
@@ -209,5 +214,90 @@ test('model ids named in settings join the list without any config', async ($, o
   expect((await ui.find({ type: 'Button', text: /·/ }))?.key).toBe('apply:us.anthropic.claude-sonnet-5-5-v1:0/high')
   await ui.input({ key: 'q', text: 'fable-5-1 max', kind: 'change' })
   expect((await ui.find({ type: 'Button', text: /·/ }))?.key).toBe('apply:claude-fable-5-1/max')
+  await ui.unmount()
+})
+
+test('a switch made through the confirm dialog prints nothing: the mod watches the model instead', async ($, on) => {
+  const clock = mock.clock(on)
+  mock.store(on)
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('ui.close', () => ({ value: undefined }))
+  on('settings.read', () => ({ value: {} }))
+  const toasts: string[] = []
+  on('ui.toast', ($, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
+  // the dialog is answered a little later: the model changes on the third poll
+  let polls = 0
+  const ran: string[] = []
+  on('session.model', () => {
+    const isSwitched = ran.includes('model') && ++polls > 3
+    return { value: isSwitched ? 'claude-opus-5-5' : 'claude-fable-5-1' }
+  })
+  on('command.run', ($, e) => {
+    ran.push(e.command)
+    return e.command === 'model' ? {} : { text: 'Set effort level to high' }
+  })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.input({ key: 'q', text: 'op hi' })
+  await clock.advance(1)
+  expect(ran).toEqual(['model'])
+  await clock.advance(3000)
+  expect(ran).toEqual(['model', 'effort'])
+  expect(toasts.at(-1)).toBe('now opus · high')
+  await ui.unmount()
+})
+
+test('a dialog that is declined leaves the model alone: no effort, no recent, after 30 s', async ($, on) => {
+  const clock = mock.clock(on)
+  mock.store(on)
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('ui.close', () => ({ value: undefined }))
+  on('settings.read', () => ({ value: {} }))
+  const toasts: string[] = []
+  on('ui.toast', ($, e) => {
+    toasts.push(e.text)
+    return { value: undefined }
+  })
+  on('session.model', () => ({ value: 'claude-fable-5-1' }))
+  const ran: string[] = []
+  on('command.run', ($, e) => {
+    ran.push(e.command)
+    return e.command === 'model' ? {} : { text: 'Set effort level to max' }
+  })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.input({ key: 'q', text: 'son max' })
+  await clock.advance(31_000)
+  expect(ran).toEqual(['model'])
+  expect(toasts.at(-1)).toContain('not confirmed')
+  await ui.input({ key: 'q', text: '', kind: 'change' })
+  expect(await ui.find({ type: 'Text', text: 'recent' })).toBeUndefined()
+  await ui.unmount()
+})
+
+test('picking the model already in use needs no change to count as applied', async ($, on) => {
+  const clock = mock.clock(on)
+  mock.store(on)
+  on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('command.register', ($, e) => ({ value: { command: e.name } }))
+  on('ui.close', () => ({ value: undefined }))
+  on('ui.toast', () => ({ value: undefined }))
+  on('settings.read', () => ({ value: {} }))
+  on('session.model', () => ({ value: 'claude-fable-5-1' }))
+  const ran: string[] = []
+  on('command.run', ($, e) => {
+    ran.push(`${e.command} ${e.args}`)
+    return {}
+  })
+  await $.session.start({ cwd: '/', surface: 'terminal', isInteractive: true })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.input({ key: 'q', text: 'fable low' })
+  await clock.advance(1)
+  expect(ran.slice(-2)).toEqual(['model fable', 'effort low'])
   await ui.unmount()
 })

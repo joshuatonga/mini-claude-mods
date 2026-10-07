@@ -122,14 +122,42 @@ const pushRecent = async ($: EngineInterface, combo: Combo) => {
   await $.store.set('recents', list)
 }
 
+/** Whether `picked` (an alias or id) names the model the session reports as `current`. */
+const sameModel = (picked: string, current: string): boolean => {
+  const p = picked.toLowerCase().replace(/\[1m\]$/, '')
+  const c = current.toLowerCase()
+  return p === c || c.includes(p) || p.includes(c)
+}
+
+/**
+ * Whether the session's model became `picked`: at once when it already is, or
+ * when it changes from `before` within 30 s (the confirm dialog's answer).
+ */
+const modelSettled = async ($: EngineInterface, before: string, picked: string): Promise<boolean> => {
+  const deadline = (await $.clock.now()) + 30_000
+  for (;;) {
+    const now = await $.session.model()
+    if (now !== before || sameModel(picked, now)) return true
+    if ((await $.clock.now()) >= deadline) return false
+    await $.clock.sleep(500)
+  }
+}
+
 const applyCombo = ($: EngineInterface, combo: Combo) => {
   // Detached: a command may not run inside the frame of the hook that asks.
   $.clock.after(0, async () => {
     try {
+      const before = await $.session.model()
       const model = await $.command.run({ command: 'model', args: combo.model })
-      // "/model" answers "Kept model as ..." when the switch was declined or refused.
-      if (model.text === undefined || !model.text.startsWith('Set model to')) {
-        $.ui.toast(`${labelOf(combo)} not applied: ${model.text ?? 'model unchanged'}`)
+      const text = model.text ?? ''
+      // "/model" prints "Set model to" or "Kept model as" when it answers at once;
+      // through its confirm dialog it prints nothing, so watch the session's model.
+      if (text.startsWith('Kept model as')) {
+        $.ui.toast(`${labelOf(combo)} not applied: ${text}`)
+        return
+      }
+      if (!text.startsWith('Set model to') && !(await modelSettled($, before, combo.model))) {
+        $.ui.toast(`${labelOf(combo)} not applied: the model switch was not confirmed`)
         return
       }
       const effort = await $.command.run({ command: 'effort', args: combo.effort })
