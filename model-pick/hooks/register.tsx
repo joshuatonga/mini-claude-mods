@@ -49,6 +49,16 @@ const boostOf =
   (key: string): number =>
     (favs.includes(key) ? 0.5 : 0) + (recs.some(c => keyOf(c) === key) ? 0.25 : 0)
 
+/**
+ * A trailing row number: "3" picks row 3 of the unfiltered list, "op hi 2"
+ * row 2 of the matches for "op hi". `index` is 0-based; null when none.
+ */
+const splitRowNumber = (text: string): { base: string; index: number | null } => {
+  const m = /^(?:(.*\S)\s+)?([1-9])$/.exec(text.trim())
+  if (m === null) return { base: text, index: null }
+  return { base: m[1] ?? '', index: Number(m[2]) - 1 }
+}
+
 const loadStore = async ($: EngineInterface) => {
   const fav = await $.store.get('favorites')
   const rec = await $.store.get('recents')
@@ -61,8 +71,13 @@ const loadStore = async ($: EngineInterface) => {
 const say = ($: EngineInterface, text: string | null) => update($, notice, () => text)
 
 const pickBy = async ($: EngineInterface, text: string): Promise<Combo | null> => {
-  const q = text.trim().toLowerCase()
   const [favs, recs, alis] = await Promise.all([read($, favorites), read($, recents), read($, aliases)])
+  const { base, index } = splitRowNumber(text)
+  if (index !== null) {
+    const rows = sectionsFor(base, favs, recs, alis, 999).flatMap(s => s.rows)
+    return rows[index] ?? null
+  }
+  const q = text.trim().toLowerCase()
   if (q === '') {
     const first = favs[0] !== undefined ? resolveKey(favs[0]) : null
     return first ?? recs[0] ?? combos[0] ?? null
@@ -206,7 +221,7 @@ const sectionsFor = (
   return out
 }
 
-const HINT = 'Enter applies ▸ · *q favorites it · =alias q binds it · /pick alias · Esc closes'
+const HINT = 'Enter applies ▸ · a row number picks that row · *q favorites · =alias q binds · Esc closes'
 
 export const register: Register = (on, options) => {
   const extra = String(options.extraModels ?? '').split(',')
@@ -220,6 +235,12 @@ export const register: Register = (on, options) => {
       argumentHint: '[query or alias]',
       immediate: true,
     })
+    await loadStore($)
+    return next(e)
+  })
+
+  // /clear, /resume and /branch reset $.state without a session.start: load again.
+  on('classic.SessionStart', { source: ['clear', 'resume', 'fork'] }, async ($, e, next) => {
     await loadStore($)
     return next(e)
   })
@@ -265,7 +286,9 @@ export const register: Register = (on, options) => {
     ])
     const pendingCombo = pending === null ? null : resolveKey(pending)
     const room = Math.max(6, (e.props.scroll?.bodyRows ?? 18) - 5)
-    const sections = sectionsFor(q, favs, recs, alis, room)
+    const { base, index } = pendingCombo === null ? splitRowNumber(q) : { base: q, index: null }
+    const sections = sectionsFor(base, favs, recs, alis, room)
+    const topIndex = index ?? 0
     const nowLine =
       cur === null ? 'now: unknown until the next request' : `now: ${cur.model} · ${cur.effort ?? 'default'}`
     let hot = 0
@@ -278,7 +301,7 @@ export const register: Register = (on, options) => {
           const key = keyOf(combo)
           const isFav = favs.includes(key)
           const alias = aliasFor(alis, key)
-          const isTop = hot === 0
+          const isTop = hot === topIndex
           const hotkey = hot < HOTKEYS.length ? HOTKEYS[hot++] : undefined
           return (
             <Box flexDirection="row" gap={1}>

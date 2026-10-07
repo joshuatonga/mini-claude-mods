@@ -158,3 +158,40 @@ test('the first row carries the marker Enter applies', async ($, on) => {
   expect(JSON.stringify(top?.children)).toContain('apply:opus/high')
   await ui.unmount()
 })
+
+test('a row number picks that row: alone from the unfiltered list, after a query from its matches', async ($, on) => {
+  const clock = mock.clock(on)
+  mock.store(on, { favorites: ['sonnet/low'] })
+  const ran: string[] = []
+  await boot($, on, ran)
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+
+  // rows: 1 sonnet·low (favorite), then all: 2 default·low, 3 default·medium ...
+  await ui.input({ key: 'q', text: '3', kind: 'change' })
+  const marked = await ui.findAll({ type: 'Box' })
+  const top = marked.find(b => JSON.stringify(b.children).includes('▸'))
+  expect(JSON.stringify(top?.children)).toContain('apply:default/medium')
+  await ui.input({ key: 'q', text: '3' })
+  await clock.advance(1)
+  expect(ran.slice(-2)).toEqual(['model default', 'effort medium'])
+
+  // "op hi 2": the second match for "op hi"
+  await ui.input({ key: 'q', text: 'op hi 2', kind: 'change' })
+  const second = (await ui.findAll({ type: 'Button', text: /·/ })).map(b => b.key)[1]
+  await ui.input({ key: 'q', text: 'op hi 2' })
+  await clock.advance(1)
+  expect(`apply:${ran.at(-2)?.slice(6)}/${ran.at(-1)?.slice(7)}`).toBe(second)
+  await ui.unmount()
+})
+
+test('favorites survive /clear, which resets state but not the store', async ($, on) => {
+  mock.clock(on)
+  mock.store(on, { favorites: ['opus/max'], aliases: { om: 'opus/max' } })
+  on('classic.SessionStart', () => ({}))
+  await boot($, on)
+  await $.classic.SessionStart({ source: 'clear' })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  expect((await ui.find({ key: 'fav:opus/max' }))?.text).toBe('★')
+  expect((await ui.find({ key: 'alias:opus/max' }))?.text).toBe('=om')
+  await ui.unmount()
+})

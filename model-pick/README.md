@@ -14,8 +14,8 @@ In any Claude Code session:
 /plugin install model-pick --marketplace joshuatonga/claude-mods
 ```
 
-Answer `y` to add the marketplace, then pick a scope (user is fine). The
-command is available right away as `/pick`.
+Answer `y` to add the marketplace, then pick a scope (user is fine). That is
+all: `/pick` works in that session right away and in every session after.
 
 Already added the marketplace? Then it is just:
 
@@ -36,16 +36,36 @@ Open the picker with `/pick`. The cursor lands in the search field.
 | `*son max` | Enter | stars / unstars **sonnet · max** as a favorite |
 | `=fx fable xhigh` | Enter | gives **fable · xhigh** the alias `fx` |
 | `fx` | Enter | applies the aliased combo (an alias always beats a fuzzy match) |
+| `3` | Enter | applies row 3 of the list |
+| `op hi 2` | Enter | applies the 2nd match for `op hi` |
 | | Esc | closes the pane |
 
-The `▸` marks the row Enter will apply. Each row has three buttons:
+The `▸` marks the row Enter will apply. The numbers `1:` to `9:` are row
+numbers: type one (alone, or after your query) to move `▸` to that row. They
+also work as hotkeys once Tab moves the focus off the search field.
 
-- the combo itself, with a `1`-`9` hotkey (press Tab to leave the search field first, then the digit)
-- `☆` / `★` to toggle favorite
-- `=…` to type an alias for that row
+Each row has three buttons: the combo itself, `☆` / `★` to toggle favorite,
+and `=…` to type an alias for that row. Tab reaches them; Enter presses.
 
 With an empty search the pane lists **favorites** first, then the **5 most
 recent** picks, then every combo.
+
+### Open it with a key
+
+Claude Code keybindings can run a slash command. Add this to
+`~/.claude/keybindings.json` (run `/keybindings` to create the file) and
+Alt+M (Option+M on macOS) opens the picker:
+
+```json
+{
+  "bindings": [
+    { "context": "Chat", "bindings": { "meta+m": "command:pick" } }
+  ]
+}
+```
+
+Any chord works, for example `"ctrl+x m"`. The binding takes no arguments,
+so it always opens the pane; aliases are for the pane or `/pick <alias>`.
 
 ### Without opening the pane
 
