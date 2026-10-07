@@ -1,0 +1,14 @@
+{
+  "name": "claude-mods",
+  "description": "Joshua Tonga's Claude Code mods",
+  "owner": {
+    "name": "Joshua Tonga"
+  },
+  "plugins": [
+    {
+      "name": "model-pick",
+      "source": "./model-pick",
+      "description": "Fuzzy-pick a model + effort combo, with favorites, aliases and recents: /pick"
+    }
+  ]
+}
