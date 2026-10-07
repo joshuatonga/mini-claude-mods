@@ -1,6 +1,6 @@
 {
   "name": "model-pick",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Fuzzy-pick a model + effort combo, with favorites, aliases and recents: /pick",
   "types": "./types/index.d.ts",
   "author": {
