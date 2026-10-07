@@ -18,9 +18,33 @@ const recents = atom({ plugin: 'model-pick', key: 'recents' } as const, [])
 const aliases = atom({ plugin: 'model-pick', key: 'aliases' } as const, {})
 const current = atom({ plugin: 'model-pick', key: 'current' } as const, null)
 
-// Set once by register from the options; the module's own, reset on reload.
-let combos: Combo[] = []
-let byKey = new Map<string, Combo>()
+// The combos offered: the built-in aliases, plus any model ids the person's
+// settings name (`availableModels`, `model`). Rebuilt at session start.
+let combos: Combo[] = allCombos(DEFAULT_MODELS)
+let byKey = new Map<string, Combo>(combos.map(c => [keyOf(c), c]))
+
+const setModels = (models: readonly string[]) => {
+  combos = allCombos([...DEFAULT_MODELS, ...models])
+  byKey = new Map(combos.map(c => [keyOf(c), c]))
+}
+
+/** Model names the settings name: the `availableModels` allowlist and the default `model`. */
+const modelsInSettings = (settings: Readonly<Record<string, unknown>>): string[] => {
+  const out: string[] = []
+  const listed = settings['availableModels']
+  if (Array.isArray(listed)) out.push(...listed.filter(isString))
+  const chosen = settings['model']
+  if (isString(chosen)) out.push(chosen)
+  return out.map(m => m.trim()).filter(m => m !== '' && !m.includes(' '))
+}
+
+const loadModels = async ($: EngineInterface) => {
+  try {
+    setModels(modelsInSettings(await $.settings.read()))
+  } catch {
+    setModels([])
+  }
+}
 
 const isString = (v: unknown): v is string => typeof v === 'string'
 
@@ -223,11 +247,7 @@ const sectionsFor = (
 
 const HINT = 'Enter applies ▸ · a row number picks that row · *q favorites · =alias q binds · Esc closes'
 
-export const register: Register = (on, options) => {
-  const extra = String(options.extraModels ?? '').split(',')
-  combos = allCombos([...DEFAULT_MODELS, ...extra])
-  byKey = new Map(combos.map(c => [keyOf(c), c]))
-
+export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'pick',
@@ -235,12 +255,14 @@ export const register: Register = (on, options) => {
       argumentHint: '[query or alias]',
       immediate: true,
     })
+    await loadModels($)
     await loadStore($)
     return next(e)
   })
 
   // /clear, /resume and /branch reset $.state without a session.start: load again.
   on('classic.SessionStart', { source: ['clear', 'resume', 'fork'] }, async ($, e, next) => {
+    await loadModels($)
     await loadStore($)
     return next(e)
   })

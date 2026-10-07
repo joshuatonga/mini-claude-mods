@@ -88,8 +88,9 @@ Models: `default`, `opus`, `sonnet`, `haiku`, `fable`, `opusplan`, and their
 A model your account cannot use is still listed; picking it makes `/model`
 answer "Kept model as …" and the mod reports "not applied".
 
-To offer more models, open `/config`, find the **Extra models** row under
-model-pick, and enter names separated by commas (aliases or full model ids).
+Model ids your settings name are added automatically: the `availableModels`
+allowlist and your default `model` in `settings.json`. That covers Bedrock and
+Vertex ids and any alias newer than this list. Nothing to configure.
 
 ## Hacking on it
 

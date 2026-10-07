@@ -3,14 +3,6 @@
   "version": "0.1.0",
   "description": "Fuzzy-pick a model + effort combo, with favorites, aliases and recents: /pick",
   "types": "./types/index.d.ts",
-  "userConfig": {
-    "extraModels": {
-      "title": "Extra models",
-      "type": "string",
-      "description": "Extra model names to offer, comma-separated (full ids or aliases)",
-      "default": ""
-    }
-  },
   "author": {
     "name": "Joshua Tonga"
   }

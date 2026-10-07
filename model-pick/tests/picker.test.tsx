@@ -18,8 +18,9 @@ const PANE = {
 } as const
 
 /** Answers what the engine would beneath the plugins, then starts the session. */
-const boot = async ($: Engine, on: On, ran: string[] = []) => {
+const boot = async ($: Engine, on: On, ran: string[] = [], settings: Record<string, unknown> = {}) => {
   on('session.start', ($, e) => ({ cwd: e.cwd }))
+  on('settings.read', () => ({ value: settings }))
   on('command.register', ($, e) => ({ value: { command: e.name } }))
   on('ui.open', () => ({ value: { isPlaced: true } }))
   on('ui.close', () => ({ value: undefined }))
@@ -193,5 +194,20 @@ test('favorites survive /clear, which resets state but not the store', async ($,
   const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
   expect((await ui.find({ key: 'fav:opus/max' }))?.text).toBe('★')
   expect((await ui.find({ key: 'alias:opus/max' }))?.text).toBe('=om')
+  await ui.unmount()
+})
+
+test('model ids named in settings join the list without any config', async ($, on) => {
+  mock.clock(on)
+  mock.store(on)
+  await boot($, on, [], {
+    availableModels: ['claude-opus-5-5', 'us.anthropic.claude-sonnet-5-5-v1:0'],
+    model: 'claude-fable-5-1',
+  })
+  const ui = await $.ui.mount({ ...PANE, surface: 'terminal' })
+  await ui.input({ key: 'q', text: 'anthropic high', kind: 'change' })
+  expect((await ui.find({ type: 'Button', text: /·/ }))?.key).toBe('apply:us.anthropic.claude-sonnet-5-5-v1:0/high')
+  await ui.input({ key: 'q', text: 'fable-5-1 max', kind: 'change' })
+  expect((await ui.find({ type: 'Button', text: /·/ }))?.key).toBe('apply:claude-fable-5-1/max')
   await ui.unmount()
 })
